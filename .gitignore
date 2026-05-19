@@ -1,5 +1,5 @@
 # docs/ — celowo NIE ignorujemy: plan audytu ma być w repo (współpraca, klon, backup).
-#        Jeśli potrzebujesz prywatnych notatek, użyj np. docs/private/ i dodaj: docs/private/
+#        Prywatne notatki: docs/private/
 
 # Python
 __pycache__/
@@ -9,17 +9,33 @@ __pycache__/
 .venv/
 venv/
 env/
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
 
 # Sekrety i lokalna konfiguracja SSH/haseł
 .env
 .env.*
 !.env.example
 
+# Lokalne skrypty pomocnicze (nie w repo)
+csv_writer_test.py
+Untitled
+
 # RPH — dane operacyjne audytu (plan: inventory z ~500 hostami; nie w repo)
 inventory.csv
+inventory*.csv
+RPH_results_*.csv
 
 # Wyniki audytu i surowe wyjścia CLI (wrażliwe / duże)
 output/
 logs/
 *.log
 raw/
+docs/private/
