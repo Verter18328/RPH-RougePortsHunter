@@ -1,5 +1,6 @@
 """Walidacja rekordów urządzeń z pliku inventory."""
 
+import ipaddress
 from ssh_data_retriever import Device
 
 
@@ -15,12 +16,9 @@ class DeviceValidation:
             return False, "Host is required"
         if not self.device.username:
             return False, "Username is required"
-        if len(self.device.host.split(".")) != 4:
+        try:
+            ipaddress.IPv4Address(self.device.host)
+        except ValueError:
             return False, "Host is not a valid IP address"
-        for part in self.device.host.split("."):
-            if not part.isdecimal():
-                return False, "Host is not a valid IP address"
-            if int(part) < 0 or int(part) > 255:
-                return False, "Host is not a valid IP address"
 
         return True, "Device is valid"

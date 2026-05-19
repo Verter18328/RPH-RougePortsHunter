@@ -42,27 +42,35 @@ class InputDataReciever:
         print(f"Reading inventory data from {self.inventory_path}...")
         inventory_data: list[Device] = []
 
-        with open(self.inventory_path, newline="", encoding="utf-8") as file:
-            reader = csv.reader(file)
-            for row in reader:
-                if not row or row == INVENTORY_HEADER:
-                    continue
-                if len(row) < 3:
-                    print(f"Pominięto niepełny wiersz: {row}")
-                    continue
-
-                device = Device(
-                    host=row[0].strip(),
-                    username=row[1].strip(),
-                    password=row[2].strip(),
-                )
-                validation = DeviceValidation(device)
-                if not validation.is_valid:
-                    print(
-                        f"Pominięto {device.host}: {validation.error_message}"
-                    )
-                    continue
-                inventory_data.append(device)
+        try:
+            with open(self.inventory_path, newline="", encoding="utf-8") as file:
+                reader = csv.reader(file)
+                for row in reader:
+                    if not row or row == INVENTORY_HEADER:
+                        continue
+                    if len(row) < 3:
+                        print(f"Pominięto niepełny wiersz: {row}")
+                        continue
+                    try:
+                        device = Device(
+                            host=row[0].strip(),
+                            username=row[1].strip(),
+                            password=row[2].strip(),
+                        )
+                        validation = DeviceValidation(device)
+                        if not validation.is_valid:
+                            print(
+                                f"Pominięto {device.host}: "
+                                f"{validation.error_message}"
+                            )
+                            continue
+                        inventory_data.append(device)
+                    except Exception as e:
+                        print(f"Błąd wiersza inventory {row}: {e}")
+                        continue
+        except OSError as e:
+            print(f"Błąd odczytu pliku inventory: {e}")
+            return []
 
         print(
             f"Inventory data read successfully. "

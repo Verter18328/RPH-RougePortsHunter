@@ -30,10 +30,11 @@ class SSHDataRetriever:
 
     def __init__(self, device: Device) -> None:
         self.device = device
-        self.connection = self._connect()
+        self.connection: netmiko.BaseConnection | None = None
+        self._connect()
 
-    def _connect(self) -> netmiko.BaseConnection:
-        return netmiko.ConnectHandler(
+    def _connect(self) -> None:
+        self.connection = netmiko.ConnectHandler(
             device_type="extreme",
             host=self.device.host,
             username=self.device.username,
@@ -41,11 +42,13 @@ class SSHDataRetriever:
         )
 
     def _prepare_cli(self) -> None:
+        if self.connection is None:
+            raise RuntimeError("Brak aktywnej sesji SSH.")
         self.connection.send_command("disable cli paging")
 
     def get_netlogin_mac(self) -> list[NetloginMacRecord]:
         self._prepare_cli()
-        output = self.connection.send_command(
+        output = self.connection.send_command(  # type: ignore[union-attr]
             "show netlogin mac",
             read_timeout=300,
         )
@@ -53,8 +56,17 @@ class SSHDataRetriever:
 
     def get_ports(self) -> list[PortRecord]:
         self._prepare_cli()
-        output = self.connection.send_command("show ports no-refresh")
+        output = self.connection.send_command(  # type: ignore[union-attr]
+            "show ports no-refresh",
+        )
         return PortsParser().parse(output)
 
     def close(self) -> None:
-        self.connection.disconnect()
+        if self.connection is None:
+            return
+        try:
+            self.connection.disconnect()
+        except Exception as e:
+            print(f"Ostrzeżenie: błąd przy zamykaniu sesji {self.device.host}: {e}")
+        finally:
+            self.connection = None

@@ -1,5 +1,7 @@
 """Rouge Ports Hunter (RPH) — audyt portów netlogin na EXOS."""
 
+from netmiko.exceptions import NetmikoAuthenticationException, NetmikoTimeoutException
+
 from export_results import Exporter
 from input_data_reciever import InputDataReciever
 from netlogin_mac_parser import NetloginMacRecord
@@ -43,37 +45,76 @@ class RougePortsHunter:
         return findings
 
     def get_all_devices(self) -> list[Device]:
-        receiver = InputDataReciever()
-        return receiver.get_inventory_data()
+        try:
+            receiver = InputDataReciever()
+            return receiver.get_inventory_data()
+        except FileNotFoundError as e:
+            print(f"Błąd inventory: {e}")
+            return []
+        except Exception as e:
+            print(f"Błąd wczytywania urządzeń: {e}")
+            return []
+
+    def _fetch_host(self, device: Device) -> OutputData | None:
+        data_retriever: SSHDataRetriever | None = None
+        try:
+            data_retriever = SSHDataRetriever(device)
+            mac_records = data_retriever.get_netlogin_mac()
+            ports_records = data_retriever.get_ports()
+            findings = self.compare_lists(
+                mac_records,
+                ports_records,
+                self.LAB_SAMPLE_SKIP_PORTS,
+            )
+            return OutputData(device.host, findings)
+        except NetmikoAuthenticationException:
+            print(f"Błąd logowania SSH na {device.host} — pomijam host.")
+        except NetmikoTimeoutException:
+            print(f"Timeout SSH na {device.host} — pomijam host.")
+        except Exception as e:
+            print(f"Błąd na {device.host}: {e} — pomijam host.")
+        finally:
+            if data_retriever is not None:
+                data_retriever.close()
+        return None
 
     def fetch_non_netlogin_ports(self, devices: list[Device]) -> list[OutputData]:
         output_data: list[OutputData] = []
+        failed = 0
         for device in devices:
             print(f"Fetching data from {device.host} ...\n")
-            data_retriever = SSHDataRetriever(device)
-            try:
-                mac_records = data_retriever.get_netlogin_mac()
-                ports_records = data_retriever.get_ports()
-                findings = self.compare_lists(
-                    mac_records,
-                    ports_records,
-                    self.LAB_SAMPLE_SKIP_PORTS,
-                )
-                output_data.append(OutputData(device.host, findings))
-            finally:
-                data_retriever.close()
+            result = self._fetch_host(device)
+            if result is not None:
+                output_data.append(result)
+            else:
+                failed += 1
+        if failed:
+            print(f"Zakończono z błędami na {failed} z {len(devices)} hostów.")
         return output_data
 
     def export_results(self, output_data: list[OutputData]) -> None:
-        Exporter(output_data).export()
+        try:
+            Exporter(output_data).export()
+        except OSError as e:
+            print(f"Błąd zapisu raportu CSV: {e}")
+        except Exception as e:
+            print(f"Błąd eksportu: {e}")
 
     def run(self) -> None:
-        devices = self.get_all_devices()
-        if not devices:
-            print("Brak poprawnych urządzeń w inventory — kończę.")
-            return
-        output_data = self.fetch_non_netlogin_ports(devices)
-        self.export_results(output_data)
+        try:
+            devices = self.get_all_devices()
+            if not devices:
+                print("Brak poprawnych urządzeń w inventory — kończę.")
+                return
+            output_data = self.fetch_non_netlogin_ports(devices)
+            if not output_data:
+                print("Brak wyników do eksportu (wszystkie hosty z błędem?).")
+                return
+            self.export_results(output_data)
+        except KeyboardInterrupt:
+            print("\nPrzerwano przez użytkownika.")
+        except Exception as e:
+            print(f"Nieoczekiwany błąd: {e}")
 
 
 if __name__ == "__main__":

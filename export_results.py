@@ -21,10 +21,14 @@ class Exporter:
         return self.DOWNLOADS_DIR / f"RPH_results_{timestamp}.csv"
 
     def export(self) -> None:
-        with open(self.path, "w", newline="", encoding="utf-8") as file:
-            writer = csv.writer(file)
-            writer.writerow(["Host", "Ports"])
-            for data in self.output_data:
-                for port in data.ports:
-                    writer.writerow([data.host, port])
-        print(f"Results exported to {self.path}")
+        try:
+            self.DOWNLOADS_DIR.mkdir(parents=True, exist_ok=True)
+            with open(self.path, "w", newline="", encoding="utf-8") as file:
+                writer = csv.writer(file)
+                writer.writerow(["Host", "Ports"])
+                for data in self.output_data:
+                    for port in data.ports:
+                        writer.writerow([data.host, port])
+            print(f"Results exported to {self.path}")
+        except OSError as e:
+            raise OSError(f"Nie można zapisać {self.path}: {e}") from e
