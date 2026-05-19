@@ -19,7 +19,7 @@ class RougePortsHunter:
     MAC_SAMPLE = SAMPLES_DIR / "show_netlogin_mac_sample"
     PORTS_SAMPLE = SAMPLES_DIR / "show_ports_sample"
 
-    # Wykluczenia dla labowej próbki (10G). Stack (1:1, 1:2, …) — per host, patrz plan.
+    # Wykluczenia dla labowej próbki (10G). Stack (1:1, 1:2, …) — w produkcji per host.
     LAB_SAMPLE_SKIP_PORTS = [
         "1:49",
         "1:50",

@@ -1,6 +1,3 @@
-# docs/ — celowo NIE ignorujemy: plan audytu ma być w repo (współpraca, klon, backup).
-#        Prywatne notatki: docs/private/
-
 # Python
 __pycache__/
 *.py[cod]
@@ -38,4 +35,6 @@ output/
 logs/
 *.log
 raw/
-docs/private/
+
+# Lokalna dokumentacja (nie w repo)
+docs/

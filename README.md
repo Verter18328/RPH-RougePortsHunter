@@ -1,69 +1,66 @@
 # Rouge Ports Hunter (RPH)
 
-Narzędzie do audytu portów access na przełącznikach **Extreme EXOS**. Porównuje wyniki `show ports no-refresh` z `show netlogin mac` i raportuje porty obecne w tabeli portów, których **nie ma** w liście MAC netlogin, z uwzględnieniem skonfigurowanych wykluczeń (np. uplink, stack).
+Audit tool for access ports on **Extreme EXOS** switches. It compares `show ports no-refresh` with `show netlogin mac` and reports ports that appear in the port table but are **not** listed in netlogin MAC output, subject to configured exclusions (e.g. uplink, stack).
 
 | | |
 |---|---|
-| **Nazwa** | Rouge Ports Hunter |
-| **Skrót** | RPH |
-| **Platforma** | EXOS 37.x · Netmiko (`device_type=extreme`) |
+| **Name** | Rouge Ports Hunter |
+| **Short name** | RPH |
+| **Platform** | EXOS 37.x · Netmiko (`device_type=extreme`) |
 
 ---
 
-## Działanie
+## How it works
 
 ```mermaid
 flowchart LR
-  A[Plik inventory CSV] --> B[Połączenie SSH]
+  A[Inventory CSV] --> B[SSH session]
   B --> C[show netlogin mac]
   B --> D[show ports no-refresh]
-  C --> E[Parsery]
+  C --> E[Parsers]
   D --> E
-  E --> F[Reguła audytu]
-  F --> G[Raport CSV]
+  E --> F[Audit rule]
+  F --> G[CSV report]
 ```
 
-| Krok | Opis |
-|------|------|
-| 1 | Wybór pliku inventory (okno dialogowe) |
-| 2 | Dla każdego hosta: SSH i wykonanie obu poleceń |
-| 3 | Parsowanie wyjścia CLI do list portów |
-| 4 | Porównanie: port z `show ports` bez wpisu w `show netlogin mac` → wpis w raporcie (poza wykluczeniami) |
-| 5 | Zapis pliku `RPH_results_<timestamp>.csv` w domyślnym katalogu pobierania użytkownika |
-
-Szczegóły reguły audytu i faz rozwoju: [`docs/plan-python-netlogin-audit-exos.md`](docs/plan-python-netlogin-audit-exos.md).
+| Step | Description |
+|------|-------------|
+| 1 | Select inventory file (file dialog) |
+| 2 | Per host: SSH and run both commands |
+| 3 | Parse CLI output into port lists |
+| 4 | Compare: port in `show ports` with no entry in `show netlogin mac` → report row (excluding skip list) |
+| 5 | Write `RPH_results_<timestamp>.csv` to the user’s default Downloads folder |
 
 ---
 
-## Wymagania
+## Requirements
 
-| Komponent | Wersja / uwagi |
-|-----------|----------------|
-| Python | 3.11 lub nowszy |
+| Component | Version / notes |
+|-----------|-----------------|
+| Python | 3.11 or newer |
 | Netmiko | `pip install -r requirements.txt` |
-| tkinter | Moduł standardowy (wybór pliku CSV). Linux: pakiet systemowy `python3-tk` |
-| Sieć | Dostęp SSH do hostów zdefiniowanych w inventory |
+| tkinter | Standard library (CSV file picker). Linux: system package `python3-tk` |
+| Network | SSH access to hosts defined in inventory |
 
 ---
 
-## Instalacja i uruchomienie
+## Installation and run
 
-### Nowe środowisko
+### First-time setup
 
-Wykonaj w katalogu głównym repozytorium (po sklonowaniu lub rozpakowaniu):
+From the repository root (after clone or extract):
 
 ```bash
-# Tylko przy pierwszym pobraniu — [do uzupełnienia: URL repozytorium Git]
 git clone https://github.com/Verter18328/RPH-RougePortsHunter
-cd [folder projektu]
+cd [project-directory]
 
 python -m venv .venv
 ```
 
-Aktywacja środowiska wirtualnego:
+Activate the virtual environment:
 
-| System | Polecenie |
-|--------|-----------|
+| OS | Command |
+|----|---------|
 | Windows | `.venv\Scripts\activate` |
 | Linux / macOS | `source .venv/bin/activate` |
 
@@ -72,57 +69,57 @@ pip install -r requirements.txt
 python main.py
 ```
 
-### Kolejne uruchomienia
+### Subsequent runs
 
 ```bash
-cd [folder projektu]
-# aktywacja .venv — jak w tabeli powyżej
+cd [project-directory]
+# activate .venv — see table above
 python main.py
 ```
 
-> Jeśli repozytorium jest już na dysku lokalnym, pomiń `git clone` i użyj wyłącznie sekcji „Kolejne uruchomienia”.
+> If the repository is already on disk, skip `git clone` and use **Subsequent runs** only.
 
-Po starcie wybierz plik inventory. Komunikaty operacyjne — w konsoli; raport — w katalogu pobierania (domyślnie **Pobrane** / **Downloads**).
+On startup, select the inventory file. Operational messages appear in the console; the report is written to **Downloads**.
 
 ---
 
-## Plik inventory (CSV)
+## Inventory file (CSV)
 
-Format: nagłówek opcjonalny, wiersze danych.
+Optional header row, then data rows.
 
 ```csv
 host,username,password
-[adres IPv4],[użytkownik],[hasło]
+[IPv4 address],[username],[password]
 ```
 
-| Kolumna | Wymagania |
-|---------|-----------|
-| `host` | Adres IPv4 (walidowany przy imporcie) |
-| `username` | Login SSH (wymagany, niepusty) |
-| `password` | Hasło SSH — **dozwolone puste** |
+| Column | Requirements |
+|--------|----------------|
+| `host` | IPv4 address (validated on import) |
+| `username` | SSH login (required, non-empty) |
+| `password` | SSH password — **may be empty** |
 
-Wiersze niepoprawne są pomijane; szczegóły w logu konsoli.
+Invalid rows are skipped; details are printed to the console.
 
-Plików inventory **nie umieszczaj w repozytorium** — wzorce w `.gitignore` (`inventory.csv`, `inventory*.csv`).
+**Do not commit inventory files** — patterns in `.gitignore` (`inventory.csv`, `inventory*.csv`).
 
 ---
 
-## Raport wynikowy (CSV)
+## Output report (CSV)
 
-Nazwa pliku: `RPH_results_<RRRR-MM-DD>_<GG-MM-SS>.csv`
+Filename: `RPH_results_<YYYY-MM-DD>_<HH-MM-SS>.csv`
 
-Struktura:
+Format:
 
 ```csv
 Host,Ports
-[adres IPv4],[slot:port lub port]
+[IPv4 address],[slot:port]
 ```
 
-Jeden wiersz odpowiada jednemu portowi zgłoszonemu na danym hoście.
+One row per reported port on a given host.
 
 ---
 
-## Struktura repozytorium
+## Repository layout
 
 ```
 .
@@ -136,56 +133,55 @@ Jeden wiersz odpowiada jednemu portowi zgłoszonemu na danym hoście.
 ├── samples/
 │   ├── show_netlogin_mac_sample
 │   └── show_ports_sample
-├── docs/
-│   └── plan-python-netlogin-audit-exos.md
 ├── requirements.txt
+├── LICENSE
 └── .gitignore
 ```
 
-| Moduł | Odpowiedzialność |
-|-------|------------------|
-| `main.py` | Przepływ: inventory → SSH → audyt → eksport |
-| `input_data_reciever.py` | Wybór i odczyt CSV |
-| `data_validation.py` | Walidacja hosta i użytkownika |
-| `ssh_data_retriever.py` | SSH, modele `Device` / `OutputData` |
-| `netlogin_mac_parser.py` | Parser `show netlogin mac` |
-| `ports_parser.py` | Parser `show ports no-refresh` |
-| `export_results.py` | Zapis raportu CSV |
-| `samples/` | Referencyjne wyjścia CLI (rozwój i testy offline) |
+| Module | Responsibility |
+|--------|----------------|
+| `main.py` | Flow: inventory → SSH → audit → export |
+| `input_data_reciever.py` | CSV file selection and read |
+| `data_validation.py` | Host and username validation |
+| `ssh_data_retriever.py` | SSH, `Device` / `OutputData` models |
+| `netlogin_mac_parser.py` | Parser for `show netlogin mac` |
+| `ports_parser.py` | Parser for `show ports no-refresh` |
+| `export_results.py` | CSV report export |
+| `samples/` | Reference CLI output (offline development and tests) |
 
-Dane operacyjne poza repozytorium (`.gitignore`): inventory, `output/`, `logs/`, `raw/`, pliki `RPH_results_*.csv` w drzewie projektu.
-
----
-
-## Wykluczenia portów
-
-Lista `LAB_SAMPLE_SKIP_PORTS` w `main.py` definiuje porty pomijane w środowisku laboratoryjnym (uplink 10G na stosie). W wdrożeniu produkcyjnym wykluczenia powinny być **per host** — zob. dokumentacja w `docs/`.
+Operational data excluded from the repo (`.gitignore`): inventory, `output/`, `logs/`, `raw/`, `RPH_results_*.csv` under the project tree.
 
 ---
 
-## Stan rozwoju
+## Port exclusions
 
-| Zaimplementowane | Planowane |
-|------------------|-----------|
-| Parsery CLI, próbki w `samples/` | Równoległe sesje SSH, skala wielu hostów |
-| Reguła audytu i wykluczenia lab | Bastion, zarządzanie sekretami (np. `.env`) |
-| Import inventory, walidacja | Wykluczenia konfigurowalne per host |
-| SSH, eksport CSV | — |
+`LAB_SAMPLE_SKIP_PORTS` in `main.py` skips laboratory uplink ports (10G stack). In production, exclusions should be **per host** (configure in code or future config).
 
 ---
 
-## Bezpieczeństwo i dane wrażliwe
+## Development status
 
-- Nie commituj plików inventory ani haseł.
-- Raporty mogą zawierać adresy IP i identyfikatory portów — stosuj politykę przechowywania danych sieciowych organizacji.
-- Puste hasło dopuszczalne wyłącznie tam, gdzie zezwala na to polityka środowiska (np. lab izolowany).
+| Implemented | Planned |
+|-------------|---------|
+| CLI parsers, samples in `samples/` | Concurrent SSH, large host counts |
+| Audit rule and lab skip list | Bastion, secrets management (e.g. `.env`) |
+| Inventory import and validation | Configurable per-host exclusions |
+| SSH and CSV export | — |
 
 ---
 
-## Informacje organizacyjne
+## Security and sensitive data
 
-| Pole | Wartość |
-|------|---------|
-| Repozytorium | [do uzupełnienia: URL Git] |
-| Właściciel / zespół | [do uzupełnienia] |
-| Licencja | [do uzupełnienia] |
+- Do not commit inventory files or credentials.
+- Reports may contain IP addresses and port identifiers — follow your organization’s network data handling policy.
+- Empty passwords are acceptable only where environment policy allows (e.g. isolated lab).
+
+---
+
+## Project information
+
+| Field | Value |
+|-------|--------|
+| Repository | https://github.com/Verter18328/RPH-RougePortsHunter |
+| Author | [Verter18328](https://github.com/Verter18328) |
+| License | [Custom — use with attribution; no modifications or resale](LICENSE) |
