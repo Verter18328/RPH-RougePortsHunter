@@ -54,7 +54,7 @@ Wykonaj w katalogu głównym repozytorium (po sklonowaniu lub rozpakowaniu):
 
 ```bash
 # Tylko przy pierwszym pobraniu — [do uzupełnienia: URL repozytorium Git]
-git clone [https://github.com/Verter18328/RPH-RougePortsHunter]
+git clone https://github.com/Verter18328/RPH-RougePortsHunter
 cd [folder projektu]
 
 python -m venv .venv
