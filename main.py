@@ -1,7 +1,5 @@
 """Rouge Ports Hunter (RPH) — audyt portów netlogin na EXOS."""
 
-from pathlib import Path
-
 from export_results import Exporter
 from input_data_reciever import InputDataReciever
 from netlogin_mac_parser import NetloginMacRecord
@@ -14,10 +12,6 @@ class RougePortsHunter:
 
     APP_NAME = "Rouge Ports Hunter"
     APP_SHORT = "RPH"
-
-    SAMPLES_DIR = Path("samples")
-    MAC_SAMPLE = SAMPLES_DIR / "show_netlogin_mac_sample"
-    PORTS_SAMPLE = SAMPLES_DIR / "show_ports_sample"
 
     # Wykluczenia dla labowej próbki (10G). Stack (1:1, 1:2, …) — w produkcji per host.
     LAB_SAMPLE_SKIP_PORTS = [

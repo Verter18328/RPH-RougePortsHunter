@@ -36,5 +36,6 @@ logs/
 *.log
 raw/
 
-# Lokalna dokumentacja (nie w repo)
+# Lokalna dokumentacja i próbki CLI (nie w repo)
 docs/
+samples/

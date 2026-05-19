@@ -130,9 +130,6 @@ One row per reported port on a given host.
 ├── netlogin_mac_parser.py
 ├── ports_parser.py
 ├── export_results.py
-├── samples/
-│   ├── show_netlogin_mac_sample
-│   └── show_ports_sample
 ├── requirements.txt
 ├── LICENSE
 └── .gitignore
@@ -147,9 +144,8 @@ One row per reported port on a given host.
 | `netlogin_mac_parser.py` | Parser for `show netlogin mac` |
 | `ports_parser.py` | Parser for `show ports no-refresh` |
 | `export_results.py` | CSV report export |
-| `samples/` | Reference CLI output (offline development and tests) |
 
-Operational data excluded from the repo (`.gitignore`): inventory, `output/`, `logs/`, `raw/`, `RPH_results_*.csv` under the project tree.
+Operational data excluded from the repo (`.gitignore`): inventory, `samples/`, `output/`, `logs/`, `raw/`, `RPH_results_*.csv` under the project tree.
 
 ---
 
@@ -163,7 +159,7 @@ Operational data excluded from the repo (`.gitignore`): inventory, `output/`, `l
 
 | Implemented | Planned |
 |-------------|---------|
-| CLI parsers, samples in `samples/` | Concurrent SSH, large host counts |
+| CLI parsers | Concurrent SSH, large host counts |
 | Audit rule and lab skip list | Bastion, secrets management (e.g. `.env`) |
 | Inventory import and validation | Configurable per-host exclusions |
 | SSH and CSV export | — |
