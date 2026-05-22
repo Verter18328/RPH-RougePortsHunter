@@ -180,4 +180,4 @@ Operational data excluded from the repo (`.gitignore`): inventory, `samples/`, `
 |-------|--------|
 | Repository | https://github.com/Verter18328/RPH-RougePortsHunter |
 | Author | [Verter18328](https://github.com/Verter18328) |
-| License | [Custom — use with attribution; no modifications or resale](LICENSE) |
+| License | [MIT](LICENSE) |
