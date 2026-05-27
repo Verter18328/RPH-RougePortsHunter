@@ -28,3 +28,4 @@ class Globals:
     devices: list[IPv4Address] = []
 
     MAIN_WINDOW_PATH = pathlib.Path(__file__).parent / "Ui_Files" / "main_window.ui"
+    THEME_PATH = pathlib.Path(__file__).parent / "Ui_Files" / "app_theme.qss"

@@ -2,38 +2,84 @@
 
 Audit tool for access ports on **Extreme EXOS** switches. It compares `show ports no-refresh` with `show netlogin mac` and reports ports that appear in the port table but are **not** listed in netlogin MAC output, subject to configured exclusions (e.g. uplink, stack).
 
+The tool runs as a **desktop application** (PySide6): pick an inventory file, enter SSH credentials **once** for the whole run, and view results in the GUI — no per-row credentials in CSV.
+
 | | |
 |---|---|
 | **Name** | Rouge Ports Hunter |
 | **Short name** | RPH |
 | **Platform** | EXOS 37.x · Netmiko (`device_type=extreme`) |
-| **UI** | PySide6 (Qt) |
+| **UI** | PySide6 (Qt) — desktop app |
 
 ---
 
 ## How it works
 
 ```mermaid
-flowchart LR
-  A[Inventory CSV] --> B[GUI: SSH login]
-  B --> C[SSH per host]
-  C --> D[show netlogin mac]
-  C --> E[show ports no-refresh]
-  D --> F[Parsers]
-  E --> F
-  F --> G[Audit rule]
-  G --> H[Table + CSV report]
+flowchart TD
+  S[Home: Hunt] --> F[CSV file dialog]
+  F --> L[Login: username + password]
+  L --> P[Fetch: progress bar]
+  P --> SSH[SSH to each host]
+  SSH --> D[show netlogin mac]
+  SSH --> E[show ports no-refresh]
+  D --> PAR[Parsers]
+  E --> PAR
+  PAR --> R[Audit rule]
+  R --> W[Results table + CSV in Downloads]
 ```
 
 | Step | Description |
 |------|-------------|
-| 1 | Start the app, choose **Hunt** — select inventory CSV (one IPv4 per row) |
-| 2 | Enter SSH username and password on the login screen |
-| 3 | Per host: SSH and run both commands (progress bar in the GUI) |
-| 4 | Compare: port in `show ports` with no entry in `show netlogin mac` → result row (excluding skip list) |
-| 5 | View results in the table; CSV is saved to **Downloads** as `RPH_results_<timestamp>.csv` |
+| 1 | Start the app, on the home screen choose **Hunt** |
+| 2 | Select inventory CSV — one IPv4 address per row |
+| 3 | Enter **one** SSH username and password pair — used for **all** hosts in the list |
+| 4 | The app connects to each host in sequence (progress bar, background thread) |
+| 5 | A port in `show ports` with no entry in `show netlogin mac` is reported (excluding the skip list) |
+| 6 | Results in the table; CSV report saved to **Downloads** as `RPH_results_<timestamp>.csv` |
 
 Operational messages (skipped rows, SSH errors) are printed to the **console** (terminal where you started the app).
+
+---
+
+## User interface (GUI)
+
+The app uses several screens in a `QStackedWidget`:
+
+| Screen (`QStackedWidget`) | Purpose |
+|---------------------------|---------|
+| **Home** (`homePage`) | *Hunt* button — start an audit |
+| **Waiting for file** (`waitingForFilePage`) | Brief transitional screen while the CSV file dialog opens |
+| **Login** (`loginPage`) | *username* (required) and *password* — **one pair** for every host in inventory |
+| **Fetching** (`fetchingPage`) | Progress bar (real %), “Fetching…” animation during background SSH |
+| **Results** (`resultsPage`) | Host / Port table; message with path to the exported CSV |
+
+Layout: `Ui_Files/main_window.ui` (Qt Designer). Theme: `Ui_Files/app_theme.qss`, loaded in `main_window.py`.
+
+**Shortcuts and behavior**
+
+- **Escape** — return to the home screen (disabled while a fetch is running).
+- Data collection runs in a **background thread** (`QThread`) so the UI stays responsive.
+- On success, the progress bar animates to 100%, then the app navigates to the results screen.
+
+---
+
+## Global SSH credentials
+
+| Aspect | Current behavior | Legacy (no longer supported) |
+|--------|------------------|------------------------------|
+| CSV file | `host` column only (IPv4) | `host,username,password` header — **not read** |
+| Login / password | Once on the login screen | Per CSV row (removed) |
+| Session storage | `Globals.global_username`, `Globals.global_password` | — |
+| SSH usage | `SSHDataRetriever` for each host in `Globals.devices` | — |
+
+Details:
+
+- **Username** is required — an empty field blocks fetch start (`signals.loginClicked`).
+- **Password** may be empty where environment policy allows (e.g. lab).
+- Credentials are not written to disk — they live in process memory for the audit run only.
+
+Do not commit inventory files or passwords to the repository.
 
 ---
 
@@ -82,13 +128,11 @@ python main_window.py
 
 > If the repository is already on disk, skip `git clone` and use **Subsequent runs** only.
 
-Press **Escape** to return to the home screen (not while a fetch is running).
-
 ---
 
 ## Inventory file (CSV)
 
-One column per row: IPv4 address. Optional header row `host` (also accepts legacy `host,username,password` header — credentials are **not** read from CSV).
+One column per row: IPv4 address. Optional header `host` (legacy `host,username,password` header is accepted but **credentials are not read from CSV**).
 
 ```csv
 host
@@ -99,8 +143,6 @@ host
 | Column | Requirements |
 |--------|----------------|
 | `host` | IPv4 address (validated on import) |
-
-SSH **username** (required) and **password** (may be empty) are entered in the application after selecting the inventory file.
 
 Invalid rows are skipped; details are printed to the console.
 
@@ -128,17 +170,20 @@ One row per reported port on a given host.
 
 ```
 .
-├── main_window.py          # Entry point (GUI)
-├── business_logic.py       # Audit flow (inventory → SSH → compare → export)
-├── signals.py              # Qt signals, worker thread, UI handlers
-├── globals.py              # Shared state, inventory file dialog
+├── main_window.py          # Entry point — loads UI and Qt event loop
+├── signals.py              # Signals, fetch worker thread, screen navigation
+├── ui_fetch_feedback.py    # Progress bar and label animation during fetch
+├── business_logic.py       # Audit: inventory → SSH → compare → export
+├── globals.py              # Shared state (credentials, host list, UI paths)
 ├── input_data_reciever.py  # CSV inventory read
 ├── data_validation.py      # IPv4 validation
 ├── ssh_data_retriever.py   # SSH session, OutputData
 ├── netlogin_mac_parser.py
 ├── ports_parser.py
 ├── export_results.py
-├── Ui_Files/main_window.ui
+├── Ui_Files/
+│   ├── main_window.ui      # Window layout (Qt Designer)
+│   └── app_theme.qss       # Application stylesheet
 ├── requirements.txt
 ├── LICENSE
 └── .gitignore
@@ -146,12 +191,12 @@ One row per reported port on a given host.
 
 | Module | Responsibility |
 |--------|----------------|
-| `main_window.py` | Loads `.ui`, starts Qt event loop |
-| `business_logic.py` | Core audit: `RougePortsHunter` |
+| `main_window.py` | Loads `.ui` and QSS theme, starts the app |
 | `signals.py` | Buttons, progress, results table, background fetch |
-| `globals.py` | SSH credentials, device list, paths |
+| `ui_fetch_feedback.py` | Smooth progress bar and “Fetching…” animation |
+| `globals.py` | `global_username` / `global_password`, device list, UI paths |
+| `business_logic.py` | Core audit: `RougePortsHunter` |
 | `input_data_reciever.py` | Inventory CSV selection and parsing |
-| `data_validation.py` | Host IPv4 validation |
 | `ssh_data_retriever.py` | SSH commands and `OutputData` |
 | `export_results.py` | CSV export to Downloads |
 
@@ -172,13 +217,14 @@ Operational data excluded from the repo (`.gitignore`): inventory, `samples/`, `
 | CLI parsers, audit rule, lab skip list | Concurrent SSH for large inventories |
 | PySide6 GUI (inventory, login, progress, results) | Bastion, secrets management (e.g. `.env`) |
 | Inventory import and IPv4 validation | Configurable per-host exclusions |
+| Single SSH username/password for the whole host list | — |
 | SSH and CSV export | — |
 
 ---
 
 ## Security and sensitive data
 
-- Do not commit inventory files or credentials.
+- Do not commit inventory files, passwords, or reports containing network data.
 - Reports may contain IP addresses and port identifiers — follow your organization’s network data handling policy.
 - Empty passwords are acceptable only where environment policy allows (e.g. isolated lab).
 

@@ -82,19 +82,26 @@ class RougePortsHunter:
                 data_retriever.close()
         return None
 
-    def fetch_non_netlogin_ports(self, hosts: list[IPv4Address], on_progress: Callable[[int, int, IPv4Address], None] | None = None) -> list[OutputData]:
+    def fetch_non_netlogin_ports(
+        self,
+        hosts: list[IPv4Address],
+        on_progress: Callable[[int, int, IPv4Address], None] | None = None,
+    ) -> list[OutputData]:
         output_data: list[OutputData] = []
         failed = 0
         total = len(hosts)
         for idx, host in enumerate(hosts, start=1):
             if on_progress is not None:
-                on_progress(idx, total, host)
+                # Postęp liczony jako liczba zakończonych hostów (idx - 1).
+                on_progress(idx - 1, total, host)
             print(f"Fetching data from {host} ...\n")
             result = self._fetch_host(host)
             if result is not None:
                 output_data.append(result)
             else:
                 failed += 1
+            if on_progress is not None:
+                on_progress(idx, total, host)
         if failed:
             print(f"Zakończono z błędami na {failed} z {len(hosts)} hostów.")
         return output_data

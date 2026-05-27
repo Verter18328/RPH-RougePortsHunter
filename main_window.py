@@ -12,6 +12,15 @@ class MainWindow(QMainWindow):
         super().__init__()
         loader = QUiLoader()
         self.ui = loader.load(Globals.MAIN_WINDOW_PATH)
+
+        try:
+            qss_path = Globals.THEME_PATH
+            if qss_path.is_file():
+                self.ui.setStyleSheet(qss_path.read_text(encoding="utf-8"))
+        except OSError:
+            # W razie problemu z odczytem stylu aplikacja nadal działa na domyślnym wyglądzie.
+            pass
+
         self.ui.stackedWidget.setCurrentWidget(self.ui.homePage)
         self.signals = MainWindowSignals(self.ui)
 

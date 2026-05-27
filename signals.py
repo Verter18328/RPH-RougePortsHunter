@@ -1,13 +1,14 @@
 from ipaddress import IPv4Address
 import pathlib
 
-from PySide6.QtCore import Qt, QObject, Signal, QThread, Slot
+from PySide6.QtCore import Qt, QObject, QTimer, Signal, QThread, Slot
 from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import QMainWindow, QMessageBox, QTableWidgetItem, QHeaderView
 
 from business_logic import RougePortsHunter
 from globals import Globals
 from ssh_data_retriever import OutputData
+from ui_fetch_feedback import FetchProgressController, FetchingDotsAnimator
 
 
 class FetchWorker(QObject):
@@ -20,8 +21,8 @@ class FetchWorker(QObject):
         try:
             hunter = RougePortsHunter()
 
-            def on_progress(idx: int, total: int, host: IPv4Address) -> None:
-                percent = int((idx / total) * 100) if total else 0
+            def on_progress(completed: int, total: int, host: IPv4Address) -> None:
+                percent = int((completed / total) * 100) if total else 0
                 self.progress.emit(percent)
                 print(f"Fetching data from {host} ... {percent}%")
 
@@ -42,6 +43,8 @@ class MainWindowSignals(QObject):
         self._thread: QThread | None = None
         self._worker: FetchWorker | None = None
         self._is_fetching = False
+        self._progress_controller = FetchProgressController(self.ui.progressBar, self)
+        self._dots_animator = FetchingDotsAnimator(self.ui.label_6, self)
         self.connect_signals()
 
     def connect_signals(self) -> None:
@@ -51,11 +54,27 @@ class MainWindowSignals(QObject):
         esc_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Escape), self.ui)
         esc_shortcut.activated.connect(self.go_home)
 
+    def _start_fetch_feedback(self) -> None:
+        self._progress_controller.start(len(Globals.devices))
+        self._dots_animator.start()
+
+    def _stop_fetch_feedback(self) -> None:
+        """Wywoływane przy zakończeniu QThread — zatrzymuje tylko 'Fetching...'.
+
+        Pasek postępu jest celowo POMIJANY, żeby nie zerwać animacji
+        domknięcia 0→100% rozpoczętej w on_fetch_finished. Reset paska
+        do 0% wykonują: on_fetch_failed, go_home oraz start() przy
+        następnym fetchu.
+        """
+        self._dots_animator.stop()
+
     def go_home(self) -> None:
         if self.ui.stackedWidget.currentWidget() == self.ui.homePage:
             return
         if self._is_fetching or (self._thread is not None and self._thread.isRunning()):
             return
+        self._dots_animator.stop()
+        self._progress_controller.stop()
         self.ui.stackedWidget.setCurrentWidget(self.ui.homePage)
 
     def hunt_ports(self) -> None:
@@ -84,8 +103,7 @@ class MainWindowSignals(QObject):
         self.fetchingPage_entered()
 
     def fetchingPage_entered(self) -> None:
-        self.ui.progressBar.setRange(0, 100)
-        self.ui.progressBar.setValue(0)
+        self._start_fetch_feedback()
         self.start_fetch_thread()
 
     def start_fetch_thread(self) -> None:
@@ -99,7 +117,7 @@ class MainWindowSignals(QObject):
 
         self._thread.started.connect(self._worker.run)
         self._worker.progress.connect(
-            self.ui.progressBar.setValue,
+            self._progress_controller.set_target,
             Qt.ConnectionType.QueuedConnection,
         )
 
@@ -126,11 +144,22 @@ class MainWindowSignals(QObject):
     def _on_thread_finished(self) -> None:
         """Clear Python refs only after QThread has fully stopped."""
         self._is_fetching = False
+        self._stop_fetch_feedback()
         self._thread = None
         self._worker = None
 
     @Slot(object)
     def on_fetch_finished(self, output_data: object) -> None:
+        # Animowane domknięcie paska 0→100% przed nawigacją do resultsPage.
+        # Nawigacja jest opóźniona o czas trwania animacji, żeby użytkownik
+        # zdążył ją zobaczyć (efekt 'zakończenia z sukcesem').
+        self._progress_controller.complete()
+        QTimer.singleShot(
+            self._progress_controller.completion_delay_ms(),
+            lambda: self._finalize_fetch_success(output_data),
+        )
+
+    def _finalize_fetch_success(self, output_data: object) -> None:
         try:
             if not isinstance(output_data, list):
                 raise TypeError("Unexpected fetch result format.")
@@ -153,6 +182,7 @@ class MainWindowSignals(QObject):
 
     @Slot(str)
     def on_fetch_failed(self, error: str) -> None:
+        self._progress_controller.stop()
         QMessageBox.warning(self.ui, "Warning", f"Failed to fetch data: {error}")
         self.ui.stackedWidget.setCurrentWidget(self.ui.homePage)
 
