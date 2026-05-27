@@ -1,9 +1,11 @@
 """Pobieranie wyjścia CLI z przełączników Extreme EXOS przez SSH (Netmiko)."""
 
 from dataclasses import dataclass
+from ipaddress import IPv4Address
 
 import netmiko
 
+from globals import Globals
 from netlogin_mac_parser import NetloginMacParser, NetloginMacRecord
 from ports_parser import PortsParser, PortRecord
 
@@ -12,33 +14,26 @@ from ports_parser import PortsParser, PortRecord
 class OutputData:
     """Wynik audytu dla jednego hosta."""
 
-    host: str
+    host: IPv4Address
     ports: list[str]
-
-
-@dataclass(frozen=True)
-class Device:
-    """Dane logowania z pliku inventory (CSV)."""
-
-    host: str
-    username: str
-    password: str
 
 
 class SSHDataRetriever:
     """Sesja SSH i polecenia ``show netlogin mac`` / ``show ports no-refresh``."""
 
-    def __init__(self, device: Device) -> None:
-        self.device = device
+    def __init__(self, host: IPv4Address) -> None:
+        self.host = host
+        self.username = Globals.global_username
+        self.password = Globals.global_password
         self.connection: netmiko.BaseConnection | None = None
         self._connect()
 
     def _connect(self) -> None:
         self.connection = netmiko.ConnectHandler(
             device_type="extreme",
-            host=self.device.host,
-            username=self.device.username,
-            password=self.device.password,
+            host=str(self.host),
+            username=self.username,
+            password=self.password,
         )
 
     def _prepare_cli(self) -> None:
@@ -67,6 +62,6 @@ class SSHDataRetriever:
         try:
             self.connection.disconnect()
         except Exception as e:
-            print(f"Ostrzeżenie: błąd przy zamykaniu sesji {self.device.host}: {e}")
+            print(f"Ostrzeżenie: błąd przy zamykaniu sesji {self.host}: {e}")
         finally:
             self.connection = None

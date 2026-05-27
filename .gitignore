@@ -16,6 +16,15 @@ Thumbs.db
 Desktop.ini
 .DS_Store
 
+# IDE / edytory
+.vscode/
+.idea/
+*.swp
+*~
+
+# Qt Designer
+*.ui.autosave
+
 # Sekrety i lokalna konfiguracja SSH/haseł
 .env
 .env.*

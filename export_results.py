@@ -20,15 +20,15 @@ class Exporter:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         return self.DOWNLOADS_DIR / f"RPH_results_{timestamp}.csv"
 
-    def export(self) -> None:
+    def export(self) -> pathlib.Path:
         try:
             self.DOWNLOADS_DIR.mkdir(parents=True, exist_ok=True)
             with open(self.path, "w", newline="", encoding="utf-8") as file:
                 writer = csv.writer(file)
-                writer.writerow(["Host", "Ports"])
+                writer.writerow(["Host", "Port"])
                 for data in self.output_data:
                     for port in data.ports:
-                        writer.writerow([data.host, port])
-            print(f"Results exported to {self.path}")
+                        writer.writerow([str(data.host), port])
+            return self.path
         except OSError as e:
-            raise OSError(f"Nie można zapisać {self.path}: {e}") from e
+            raise OSError(f"Cannot save {self.path}: {e}") from e

@@ -1,12 +1,16 @@
 """Rouge Ports Hunter (RPH) — audyt portów netlogin na EXOS."""
 
+import pathlib
+from typing import Callable
 from netmiko.exceptions import NetmikoAuthenticationException, NetmikoTimeoutException
+from ipaddress import IPv4Address
 
 from export_results import Exporter
+from globals import Globals
 from input_data_reciever import InputDataReciever
 from netlogin_mac_parser import NetloginMacRecord
 from ports_parser import PortRecord
-from ssh_data_retriever import Device, OutputData, SSHDataRetriever
+from ssh_data_retriever import OutputData, SSHDataRetriever
 
 
 class RougePortsHunter:
@@ -44,7 +48,7 @@ class RougePortsHunter:
                 findings.append(port)
         return findings
 
-    def get_all_devices(self) -> list[Device]:
+    def get_all_devices(self) -> list[IPv4Address]:
         try:
             receiver = InputDataReciever()
             return receiver.get_inventory_data()
@@ -55,10 +59,10 @@ class RougePortsHunter:
             print(f"Błąd wczytywania urządzeń: {e}")
             return []
 
-    def _fetch_host(self, device: Device) -> OutputData | None:
+    def _fetch_host(self, host: IPv4Address) -> OutputData | None:
         data_retriever: SSHDataRetriever | None = None
         try:
-            data_retriever = SSHDataRetriever(device)
+            data_retriever = SSHDataRetriever(host)
             mac_records = data_retriever.get_netlogin_mac()
             ports_records = data_retriever.get_ports()
             findings = self.compare_lists(
@@ -66,39 +70,41 @@ class RougePortsHunter:
                 ports_records,
                 self.LAB_SAMPLE_SKIP_PORTS,
             )
-            return OutputData(device.host, findings)
+            return OutputData(host, findings)
         except NetmikoAuthenticationException:
-            print(f"Błąd logowania SSH na {device.host} — pomijam host.")
+            print(f"Błąd logowania SSH na {host} — pomijam host.")
         except NetmikoTimeoutException:
-            print(f"Timeout SSH na {device.host} — pomijam host.")
+            print(f"Timeout SSH na {host} — pomijam host.")
         except Exception as e:
-            print(f"Błąd na {device.host}: {e} — pomijam host.")
+            print(f"Błąd na {host}: {e} — pomijam host.")
         finally:
             if data_retriever is not None:
                 data_retriever.close()
         return None
 
-    def fetch_non_netlogin_ports(self, devices: list[Device]) -> list[OutputData]:
+    def fetch_non_netlogin_ports(self, hosts: list[IPv4Address], on_progress: Callable[[int, int, IPv4Address], None] | None = None) -> list[OutputData]:
         output_data: list[OutputData] = []
         failed = 0
-        for device in devices:
-            print(f"Fetching data from {device.host} ...\n")
-            result = self._fetch_host(device)
+        total = len(hosts)
+        for idx, host in enumerate(hosts, start=1):
+            if on_progress is not None:
+                on_progress(idx, total, host)
+            print(f"Fetching data from {host} ...\n")
+            result = self._fetch_host(host)
             if result is not None:
                 output_data.append(result)
             else:
                 failed += 1
         if failed:
-            print(f"Zakończono z błędami na {failed} z {len(devices)} hostów.")
+            print(f"Zakończono z błędami na {failed} z {len(hosts)} hostów.")
         return output_data
 
-    def export_results(self, output_data: list[OutputData]) -> None:
+    def export_results(self, output_data: list[OutputData]) -> pathlib.Path | None:
         try:
-            Exporter(output_data).export()
+            return Exporter(output_data).export()
         except OSError as e:
             print(f"Błąd zapisu raportu CSV: {e}")
-        except Exception as e:
-            print(f"Błąd eksportu: {e}")
+            return None
 
     def run(self) -> None:
         try:
@@ -116,6 +122,12 @@ class RougePortsHunter:
         except Exception as e:
             print(f"Nieoczekiwany błąd: {e}")
 
-
-if __name__ == "__main__":
-    RougePortsHunter().run()
+    def fetch_and_export(
+        self, on_progress: Callable[[int, int, IPv4Address], None] | None = None
+    ) -> tuple[list[OutputData], pathlib.Path | None]:
+        output_data: list[OutputData] = self.fetch_non_netlogin_ports(Globals.devices, on_progress)
+        if not output_data:
+            print("Brak wyników do eksportu (wszystkie hosty z błędem?).")
+            return output_data, None
+        path = self.export_results(output_data)
+        return output_data, path
