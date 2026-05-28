@@ -23,9 +23,12 @@ class InventoryFileDialog:
 
 
 class Globals:
+    """Wspólne dane sesji używane przez warstwę UI i logikę."""
+
     global_username: str = ""
     global_password: str = ""
     devices: list[IPv4Address] = []
 
-    MAIN_WINDOW_PATH = pathlib.Path(__file__).parent / "Ui_Files" / "main_window.ui"
+    MAIN_WINDOW_PATH = pathlib.Path(
+        __file__).parent / "Ui_Files" / "main_window.ui"
     THEME_PATH = pathlib.Path(__file__).parent / "Ui_Files" / "app_theme.qss"

@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Rouge Ports Hunter</string>
+   <string>Rogue Ports Hunter</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="centralLayout">
@@ -69,7 +69,7 @@
         <item>
          <widget class="QLabel" name="label">
           <property name="text">
-           <string>Rouge Ports Hunter</string>
+           <string>Rogue Ports Hunter</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>

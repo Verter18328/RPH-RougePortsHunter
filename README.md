@@ -1,4 +1,4 @@
-# Rouge Ports Hunter (RPH)
+# Rogue Ports Hunter (RPH)
 
 Audit tool for access ports on **Extreme EXOS** switches. It compares `show ports no-refresh` with `show netlogin mac` and reports ports that appear in the port table but are **not** listed in netlogin MAC output, subject to configured exclusions (e.g. uplink, stack).
 
@@ -6,7 +6,7 @@ The tool runs as a **desktop application** (PySide6): pick an inventory file, en
 
 | | |
 |---|---|
-| **Name** | Rouge Ports Hunter |
+| **Name** | Rogue Ports Hunter |
 | **Short name** | RPH |
 | **Platform** | EXOS 37.x · Netmiko (`device_type=extreme`) |
 | **UI** | PySide6 (Qt) — desktop app |
@@ -195,8 +195,8 @@ One row per reported port on a given host.
 | `signals.py` | Buttons, progress, results table, background fetch |
 | `ui_fetch_feedback.py` | Smooth progress bar and “Fetching…” animation |
 | `globals.py` | `global_username` / `global_password`, device list, UI paths |
-| `business_logic.py` | Core audit: `RougePortsHunter` |
-| `input_data_reciever.py` | Inventory CSV selection and parsing |
+| `business_logic.py` | Core audit: `RoguePortsHunter` |
+| `input_data_reciever.py` | Inventory CSV selection and parsing (`InputDataReceiver`) |
 | `ssh_data_retriever.py` | SSH commands and `OutputData` |
 | `export_results.py` | CSV export to Downloads |
 

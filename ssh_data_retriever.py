@@ -19,7 +19,7 @@ class OutputData:
 
 
 class SSHDataRetriever:
-    """Sesja SSH i polecenia ``show netlogin mac`` / ``show ports no-refresh``."""
+    """Sesja SSH i polecenia audytowe EXOS."""
 
     def __init__(self, host: IPv4Address) -> None:
         self.host = host

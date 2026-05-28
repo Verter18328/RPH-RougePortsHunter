@@ -18,7 +18,8 @@ class FetchProgressController(QObject):
 
     _ANIMATION_DURATION_MS = 400
 
-    def __init__(self, progress_bar: QProgressBar, parent: QObject | None = None) -> None:
+    def __init__(self, progress_bar: QProgressBar,
+                 parent: QObject | None = None) -> None:
         super().__init__(parent)
         self._bar = progress_bar
         self._animation = QPropertyAnimation(self._bar, b"value", self)

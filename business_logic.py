@@ -1,34 +1,29 @@
-"""Rouge Ports Hunter (RPH) — audyt portów netlogin na EXOS."""
+"""Rogue Ports Hunter (RPH) — audyt portów netlogin na EXOS."""
 
 import pathlib
 from typing import Callable
-from netmiko.exceptions import NetmikoAuthenticationException, NetmikoTimeoutException
+from netmiko.exceptions import (
+    NetmikoAuthenticationException,
+    NetmikoTimeoutException,
+)
 from ipaddress import IPv4Address
+import re
 
 from export_results import Exporter
-from globals import Globals
-from input_data_reciever import InputDataReciever
+from input_data_reciever import InputDataReceiver
 from netlogin_mac_parser import NetloginMacRecord
 from ports_parser import PortRecord
 from ssh_data_retriever import OutputData, SSHDataRetriever
 
 
-class RougePortsHunter:
+class RoguePortsHunter:
     """Porównuje ``show ports`` z ``show netlogin mac`` na wielu hostach."""
 
-    APP_NAME = "Rouge Ports Hunter"
-    APP_SHORT = "RPH"
-
-    # Wykluczenia dla labowej próbki (10G). Stack (1:1, 1:2, …) — w produkcji per host.
-    LAB_SAMPLE_SKIP_PORTS = [
-        "1:49",
-        "1:50",
-        "1:51",
-        "1:52",
-        "2:49",
-        "2:50",
-        "2:51",
-        "2:52",
+    SKIP_PORTS = [
+        "49",
+        "50",
+        "51",
+        "52"
     ]
 
     def compare_lists(
@@ -37,20 +32,31 @@ class RougePortsHunter:
         ports_records: list[PortRecord],
         skip_ports: list[str] | set[str],
     ) -> list[str]:
-        """Porty z ``show ports`` bez wpisu w ``show netlogin mac``, poza ``skip_ports``."""
+        """Zwraca porty spoza netlogin z wyłączeniem ``skip_ports``."""
         mac_ports = {record.port for record in mac_records}
-        skip = set(skip_ports)
+        skip_patterns = [self._build_skip_pattern(
+            skip_port) for skip_port in skip_ports]
 
         findings: list[str] = []
         for record in ports_records:
             port = record.port
-            if port not in mac_ports and port not in skip:
+            if port not in mac_ports and not any(
+                    pattern.match(port) for pattern in skip_patterns):
                 findings.append(port)
         return findings
 
+    @staticmethod
+    def _build_skip_pattern(skip_port: str) -> re.Pattern[str]:
+        """Tworzy regex dopasowujący ``slot:port`` albo sam ``port``."""
+        token = skip_port.strip()
+        if ":" in token:
+            return re.compile(rf"^{re.escape(token)}$")
+        return re.compile(rf"^(?:\d+:)?{re.escape(token)}$")
+
     def get_all_devices(self) -> list[IPv4Address]:
+        """Zwraca listę hostów inventory; przy błędzie zwraca pustą listę."""
         try:
-            receiver = InputDataReciever()
+            receiver = InputDataReceiver()
             return receiver.get_inventory_data()
         except FileNotFoundError as e:
             print(f"Błąd inventory: {e}")
@@ -68,7 +74,7 @@ class RougePortsHunter:
             findings = self.compare_lists(
                 mac_records,
                 ports_records,
-                self.LAB_SAMPLE_SKIP_PORTS,
+                self.SKIP_PORTS,
             )
             return OutputData(host, findings)
         except NetmikoAuthenticationException:
@@ -87,6 +93,7 @@ class RougePortsHunter:
         hosts: list[IPv4Address],
         on_progress: Callable[[int, int, IPv4Address], None] | None = None,
     ) -> list[OutputData]:
+        """Pobiera dane z hostów i zwraca tylko rekordy zakończone sukcesem."""
         output_data: list[OutputData] = []
         failed = 0
         total = len(hosts)
@@ -106,35 +113,16 @@ class RougePortsHunter:
             print(f"Zakończono z błędami na {failed} z {len(hosts)} hostów.")
         return output_data
 
-    def export_results(self, output_data: list[OutputData]) -> pathlib.Path | None:
+    def export_results(
+            self,
+            output_data: list[OutputData]) -> pathlib.Path | None:
+        """Eksportuje wynik do CSV i zwraca ścieżkę albo ``None``."""
         try:
             return Exporter(output_data).export()
         except OSError as e:
             print(f"Błąd zapisu raportu CSV: {e}")
             return None
 
-    def run(self) -> None:
-        try:
-            devices = self.get_all_devices()
-            if not devices:
-                print("Brak poprawnych urządzeń w inventory — kończę.")
-                return
-            output_data = self.fetch_non_netlogin_ports(devices)
-            if not output_data:
-                print("Brak wyników do eksportu (wszystkie hosty z błędem?).")
-                return
-            self.export_results(output_data)
-        except KeyboardInterrupt:
-            print("\nPrzerwano przez użytkownika.")
-        except Exception as e:
-            print(f"Nieoczekiwany błąd: {e}")
 
-    def fetch_and_export(
-        self, on_progress: Callable[[int, int, IPv4Address], None] | None = None
-    ) -> tuple[list[OutputData], pathlib.Path | None]:
-        output_data: list[OutputData] = self.fetch_non_netlogin_ports(Globals.devices, on_progress)
-        if not output_data:
-            print("Brak wyników do eksportu (wszystkie hosty z błędem?).")
-            return output_data, None
-        path = self.export_results(output_data)
-        return output_data, path
+# Backward compatibility for existing imports/usages.
+RougePortsHunter = RoguePortsHunter

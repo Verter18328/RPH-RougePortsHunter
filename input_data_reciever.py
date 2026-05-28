@@ -8,7 +8,7 @@ from data_validation import DeviceValidation
 from globals import InventoryFileDialog
 
 
-class InputDataReciever:
+class InputDataReceiver:
     """Odczyt inventory CSV: jedna kolumna z adresem IPv4 (host)."""
 
     def __init__(self) -> None:
@@ -27,7 +27,9 @@ class InputDataReciever:
         inventory_data: list[IPv4Address] = []
 
         try:
-            with open(self.inventory_path, newline="", encoding="utf-8") as file:
+            with open(
+                self.inventory_path, newline="", encoding="utf-8"
+            ) as file:
                 reader = csv.reader(file)
                 for row in reader:
                     if not row:
@@ -35,7 +37,10 @@ class InputDataReciever:
                     if row[0].strip().lower() == "host":
                         continue
                     if len(row) != 1:
-                        print(f"Pominięto wiersz z nieprawidłową liczbą kolumn: {row}")
+                        print(
+                            "Pominięto wiersz z nieprawidłową liczbą kolumn: "
+                            f"{row}"
+                        )
                         continue
                     try:
                         host = IPv4Address(row[0].strip())
@@ -59,3 +64,7 @@ class InputDataReciever:
             f"{len(inventory_data)} hosts found."
         )
         return inventory_data
+
+
+# Backward compatibility for existing imports.
+InputDataReciever = InputDataReceiver

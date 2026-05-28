@@ -14,7 +14,10 @@ class NetloginMacRecord:
 class NetloginMacParser:
     """Linie ``Port: slot:port, Vlan: …, State: …``."""
 
-    PORT_LINE = r"^Port:\s+(?P<port>\S+),\s+Vlan:\s+(?P<vlan>[^,]+),\s+State:\s+(?P<state>[^,]+)"
+    PORT_LINE = (
+        r"^Port:\s+(?P<port>\S+),\s+Vlan:\s+(?P<vlan>[^,]+),\s+State:"
+        r"\s+(?P<state>[^,]+)"
+    )
 
     def parse(self, text: str) -> list[NetloginMacRecord]:
         records: list[NetloginMacRecord] = []

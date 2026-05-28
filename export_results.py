@@ -8,7 +8,7 @@ from ssh_data_retriever import OutputData
 
 
 class Exporter:
-    """Zapisuje pary (host, port) do ``~/Downloads/RPH_results_<timestamp>.csv``."""
+    """Zapisuje pary (host, port) do pliku CSV w katalogu Downloads."""
 
     DOWNLOADS_DIR = pathlib.Path.home() / "Downloads"
 
