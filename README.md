@@ -1,5 +1,9 @@
 # Rogue Ports Hunter (RPH)
 
+<p align="center">
+  <img src="Ui_Files/rph_logo.png" alt="" width="220" />
+</p>
+
 Audit tool for access ports on **Extreme EXOS** switches. It compares `show ports no-refresh` with `show netlogin mac` and reports ports that appear in the port table but are **not** listed in netlogin MAC output, subject to configured exclusions (e.g. uplink, stack).
 
 The tool runs as a **desktop application** (PySide6): pick an inventory file, enter SSH credentials **once** for the whole run, and view results in the GUI — no per-row credentials in CSV.
@@ -184,6 +188,7 @@ One row per reported port on a given host.
 ├── Ui_Files/
 │   ├── main_window.ui      # Window layout (Qt Designer)
 │   └── app_theme.qss       # Application stylesheet
+│   └── rph_logo.png        # RPH logo used in app icon and screens
 ├── requirements.txt
 ├── LICENSE
 └── .gitignore
