@@ -24,7 +24,8 @@ flowchart TD
   S[Home: Hunt] --> F[CSV file dialog]
   F --> L[Login: username + password]
   L --> P[Fetch: progress bar]
-  P --> SSH[SSH to each host]
+  P --> POOL[Thread pool — up to 20 hosts in parallel]
+  POOL --> SSH[SSH per host]
   SSH --> D[show netlogin mac]
   SSH --> E[show ports no-refresh]
   D --> PAR[Parsers]
@@ -38,11 +39,22 @@ flowchart TD
 | 1 | Start the app, on the home screen choose **Hunt** |
 | 2 | Select inventory CSV — one IPv4 address per row |
 | 3 | Enter **one** SSH username and password pair — used for **all** hosts in the list |
-| 4 | The app connects to each host in sequence (progress bar, background thread) |
+| 4 | Hosts are fetched **in parallel** (`ThreadPoolExecutor`, default **20** workers). The UI stays responsive (`QThread` worker); the progress bar shows the share of hosts that have finished (success or failure) |
 | 5 | A port in `show ports` with no entry in `show netlogin mac` is reported (excluding the skip list) |
 | 6 | Results in the table; CSV report saved to **Downloads** as `RPH_results_<timestamp>.csv` |
 
 Operational messages (skipped rows, SSH errors) are printed to the **console** (terminal where you started the app).
+
+### Concurrent SSH
+
+| Topic | Behavior |
+|-------|----------|
+| Implementation | `business_logic.RoguePortsHunter.fetch_non_netlogin_ports` — `ThreadPoolExecutor` + `as_completed` |
+| Workers | `WORKERS_COUNT = 20` in `business_logic.py` (tune if switches or bastion limit concurrent sessions) |
+| Sessions | One `SSHDataRetriever` (Netmiko connection) per host per worker thread; closed in `finally` |
+| Progress | After each host completes, `on_progress(done, total, host)` updates the bar (0–100%) |
+| Result order | Table and CSV list hosts in **completion order**, not necessarily inventory order |
+| Errors | Auth failure, timeout, or parse error on one host does not stop the rest |
 
 ---
 
@@ -63,7 +75,8 @@ Layout: `Ui_Files/main_window.ui` (Qt Designer). Theme: `Ui_Files/app_theme.qss`
 **Shortcuts and behavior**
 
 - **Escape** — return to the home screen (disabled while a fetch is running).
-- Data collection runs in a **background thread** (`QThread`) so the UI stays responsive.
+- Data collection runs in a **background `QThread`** (`FetchWorker` in `signals.py`); SSH I/O inside the worker uses a **thread pool** so many hosts can be queried at once without blocking the Qt event loop.
+- The progress bar reflects **real completion percentage** (smoothed with `QPropertyAnimation` in `ui_fetch_feedback.py`), not a simulated timer.
 - On success, the progress bar animates to 100%, then the app navigates to the results screen.
 
 ---
@@ -177,7 +190,7 @@ One row per reported port on a given host.
 ├── main_window.py          # Entry point — loads UI and Qt event loop
 ├── signals.py              # Signals, fetch worker thread, screen navigation
 ├── ui_fetch_feedback.py    # Progress bar and label animation during fetch
-├── business_logic.py       # Audit: inventory → SSH → compare → export
+├── business_logic.py       # Audit: inventory → parallel SSH → compare → export
 ├── globals.py              # Shared state (credentials, host list, UI paths)
 ├── input_data_reciever.py  # CSV inventory read
 ├── data_validation.py      # IPv4 validation
@@ -200,7 +213,7 @@ One row per reported port on a given host.
 | `signals.py` | Buttons, progress, results table, background fetch |
 | `ui_fetch_feedback.py` | Smooth progress bar and “Fetching…” animation |
 | `globals.py` | `global_username` / `global_password`, device list, UI paths |
-| `business_logic.py` | Core audit: `RoguePortsHunter` |
+| `business_logic.py` | Core audit: `RoguePortsHunter`, parallel fetch (`ThreadPoolExecutor`) |
 | `input_data_reciever.py` | Inventory CSV selection and parsing (`InputDataReceiver`) |
 | `ssh_data_retriever.py` | SSH commands and `OutputData` |
 | `export_results.py` | CSV export to Downloads |
@@ -211,7 +224,7 @@ Operational data excluded from the repo (`.gitignore`): inventory, `samples/`, `
 
 ## Port exclusions
 
-`LAB_SAMPLE_SKIP_PORTS` in `business_logic.py` skips laboratory uplink ports (10G stack). In production, exclusions should be **per host** (configure in code or future config).
+`SKIP_PORTS` on `RoguePortsHunter` in `business_logic.py` skips laboratory uplink ports (e.g. `49`–`52` on the stack). In production, exclusions should be **per host** (configure in code or future config).
 
 ---
 
@@ -219,10 +232,11 @@ Operational data excluded from the repo (`.gitignore`): inventory, `samples/`, `
 
 | Implemented | Planned |
 |-------------|---------|
-| CLI parsers, audit rule, lab skip list | Concurrent SSH for large inventories |
-| PySide6 GUI (inventory, login, progress, results) | Bastion, secrets management (e.g. `.env`) |
+| CLI parsers, audit rule, port skip list (`SKIP_PORTS`) | Bastion / jump-host support |
+| PySide6 GUI (inventory, login, progress, results) | Secrets management (e.g. `.env`) |
 | Inventory import and IPv4 validation | Configurable per-host exclusions |
-| Single SSH username/password for the whole host list | — |
+| Single SSH username/password for the whole host list | Tunable worker count via config file |
+| Parallel SSH fetch (`ThreadPoolExecutor`, default 20 workers) | Cancel in-flight fetch from the UI |
 | SSH and CSV export | — |
 
 ---

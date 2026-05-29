@@ -8,6 +8,7 @@ venv/
 env/
 dist/
 build/
+*.spec
 *.egg-info/
 .pytest_cache/
 
@@ -30,8 +31,16 @@ Desktop.ini
 .env.*
 !.env.example
 
+# Testy (nie wymagane do działania aplikacji)
+*_test.py
+test_*.py
+tests/
+
+# Skrypty build / pakowanie (nie wymagane do działania aplikacji)
+scripts/
+build_windows.ps1
+
 # Lokalne skrypty pomocnicze (nie w repo)
-csv_writer_test.py
 Untitled
 
 # RPH — dane operacyjne audytu (plan: inventory z ~500 hostami; nie w repo)

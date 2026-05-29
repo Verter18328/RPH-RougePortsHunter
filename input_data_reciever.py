@@ -38,7 +38,7 @@ class InputDataReceiver:
                         continue
                     if len(row) != 1:
                         print(
-                            "Pominięto wiersz z nieprawidłową liczbą kolumn: "
+                            "Skipped row with invalid number of columns: "
                             f"{row}"
                         )
                         continue
@@ -47,16 +47,16 @@ class InputDataReceiver:
                         validation = DeviceValidation(host)
                         if not validation.is_valid:
                             print(
-                                f"Pominięto {host}: "
+                                f"Skipped {host}: "
                                 f"{validation.error_message}"
                             )
                             continue
                         inventory_data.append(host)
                     except Exception as e:
-                        print(f"Błąd wiersza inventory {row}: {e}")
+                        print(f"Inventory row error {row}: {e}")
                         continue
         except OSError as e:
-            print(f"Błąd odczytu pliku inventory: {e}")
+            print(f"Inventory file read error: {e}")
             return []
 
         print(

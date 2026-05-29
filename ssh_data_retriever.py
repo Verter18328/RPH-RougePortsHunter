@@ -62,6 +62,6 @@ class SSHDataRetriever:
         try:
             self.connection.disconnect()
         except Exception as e:
-            print(f"Ostrzeżenie: błąd przy zamykaniu sesji {self.host}: {e}")
+            print(f"Warning: error closing session {self.host}: {e}")
         finally:
             self.connection = None

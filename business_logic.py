@@ -8,6 +8,8 @@ from netmiko.exceptions import (
 )
 from ipaddress import IPv4Address
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
 
 from export_results import Exporter
 from input_data_reciever import InputDataReceiver
@@ -25,6 +27,8 @@ class RoguePortsHunter:
         "51",
         "52"
     ]
+
+    WORKERS_COUNT = 20
 
     def compare_lists(
         self,
@@ -59,10 +63,10 @@ class RoguePortsHunter:
             receiver = InputDataReceiver()
             return receiver.get_inventory_data()
         except FileNotFoundError as e:
-            print(f"Błąd inventory: {e}")
+            print(f"Inventory error: {e}")
             return []
         except Exception as e:
-            print(f"Błąd wczytywania urządzeń: {e}")
+            print(f"Error loading devices: {e}")
             return []
 
     def _fetch_host(self, host: IPv4Address) -> OutputData | None:
@@ -78,11 +82,11 @@ class RoguePortsHunter:
             )
             return OutputData(host, findings)
         except NetmikoAuthenticationException:
-            print(f"Błąd logowania SSH na {host} — pomijam host.")
+            print(f"SSH authentication failed on {host} - skipping host.")
         except NetmikoTimeoutException:
-            print(f"Timeout SSH na {host} — pomijam host.")
+            print(f"SSH timeout on {host} - skipping host.")
         except Exception as e:
-            print(f"Błąd na {host}: {e} — pomijam host.")
+            print(f"Error on {host}: {e} - skipping host.")
         finally:
             if data_retriever is not None:
                 data_retriever.close()
@@ -97,20 +101,35 @@ class RoguePortsHunter:
         output_data: list[OutputData] = []
         failed = 0
         total = len(hosts)
-        for idx, host in enumerate(hosts, start=1):
-            if on_progress is not None:
-                # Postęp liczony jako liczba zakończonych hostów (idx - 1).
-                on_progress(idx - 1, total, host)
-            print(f"Fetching data from {host} ...\n")
-            result = self._fetch_host(host)
-            if result is not None:
-                output_data.append(result)
-            else:
-                failed += 1
-            if on_progress is not None:
-                on_progress(idx, total, host)
+        completed = 0
+        progress_lock = threading.Lock()
+
+        with ThreadPoolExecutor(max_workers=self.WORKERS_COUNT) as executor:
+            futures_dict = {
+                executor.submit(self._fetch_host, host): host for host in hosts
+            }
+            
+            for future in as_completed(futures_dict):
+                host = futures_dict[future]
+                try:
+                    result = future.result()
+                    if result is not None:
+                        output_data.append(result)
+                    else:
+                        failed += 1
+                except Exception as e:
+                    failed += 1
+                    print(f"Error on {host}: {e}")
+                finally:
+                    with progress_lock:
+                        completed += 1
+                        done = completed
+                    if on_progress is not None:
+                        on_progress(done, total, host)
+
+
         if failed:
-            print(f"Zakończono z błędami na {failed} z {len(hosts)} hostów.")
+            print(f"Finished with errors on {failed} of {len(hosts)} hosts.")
         return output_data
 
     def export_results(
@@ -120,7 +139,7 @@ class RoguePortsHunter:
         try:
             return Exporter(output_data).export()
         except OSError as e:
-            print(f"Błąd zapisu raportu CSV: {e}")
+            print(f"Failed to write CSV report: {e}")
             return None
 
 
